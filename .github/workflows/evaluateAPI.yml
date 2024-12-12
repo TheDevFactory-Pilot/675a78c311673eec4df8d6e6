@@ -1,0 +1,53 @@
+name: evaluateApi
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  sonarcloud:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4.1.0
+        with:
+          args: >
+            -Dsonar.organization=thedevfactory-pilot
+            -Dsonar.projectKey=sunan-b-m4hm9v0z_react_7946b5eb-fa8d-44c4-a639-356025e661c5_675a78446a377fac7c4b94e9_675a78c311673eec4df8d6e8_675a78c311673eec4df8d6e6
+            -Dsonar.branch.name=main
+        env:
+          SONAR_TOKEN: 65207c3be5d5ffb591719c8c5602be2548f1ad5a
+
+  deploymentTesting:
+    needs: sonarcloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::426691418260:role/PullDeploymentTesting
+          role-session-name: GitHubActions
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Run with Docker Compose
+        run: |
+          docker compose up --abort-on-container-exit
+          
+      - name: Cleanup
+        if: always()
+        run: docker compose down  
